@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Artefatos de treinamento
+backups/
+videos/
+train_dir/
+logs/
+tensorboard_logs/
+wandb/
+runs/
+*.log
+*.csv
+
+# Mídia gerada
+*.mp4
+*.avi
+*.mov

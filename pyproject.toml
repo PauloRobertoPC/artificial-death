@@ -1,0 +1,30 @@
+[project]
+name = "drl-curiosity"
+version = "0.1.0"
+description = "RL agent using Sample Factory, VizDoom and Gymnasium"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "gymnasium==0.29.1",
+    "vizdoom==1.2.4",
+    "torch==2.6.0",
+    "opencv-python==4.11.0.86",
+    "numpy==1.26.4",
+    "tensorboard==2.19.0",
+    "protobuf==6.30.2",
+    "sample-factory",
+    "psutil>=5.7.0",
+    "threadpoolctl>=2.0.0",
+    "colorlog",
+    "signal-slot-mp>=1.0.3,<2.0",
+    "tensorboardX>=2.0",
+    "pandas",
+    "scipy",
+    "filelock",
+]
+
+[tool.uv]
+
+[tool.uv.sources]
+sample-factory = { path = "./sample-factory", editable = true }

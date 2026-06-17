@@ -1,0 +1,11 @@
+# Dependências principais do projeto Curious-Agent
+
+gymnasium==0.29.1
+vizdoom==1.2.4
+# sample-factory==2.1.1 # Aqui só documentamos a versão, mas não instalamos ele, pois usamos a versão local
+torch==2.6.0
+opencv-python==4.11.0.86
+numpy==1.26.4
+tensorboard==2.19.0
+protobuf==6.30.2
+
