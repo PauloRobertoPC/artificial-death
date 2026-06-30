@@ -116,6 +116,14 @@ uv run tensorboard --logdir train_dir
 
 ---
 
+## 🏋️ Experimentos
+
+```bash
+uv run python sample-factory/sample_factory/launcher/run.py  --run=sf_examples.vizdoom.experiments.extrinsic --backend=processes --max_parallel=1  --pause_between=1 --experiments_per_gpu=1 --num_gpus=1
+```
+
+---
+
 ## 🎯 Avaliação
 
 Avalia um agente já treinado:
