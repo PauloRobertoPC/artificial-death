@@ -90,6 +90,8 @@ class VizdoomEnv(gym.Env):
         async_mode=False,
         record_to=None,
         render_mode: Optional[str] = None,
+        game_layout:int = 0,
+        calculate_agent_trajectory:bool = False,
     ):
         self.initialized = False
 
@@ -188,6 +190,17 @@ class VizdoomEnv(gym.Env):
 
         self.seed()
 
+        # custom args
+        self.game_layout = game_layout
+        self.calculate_agent_trajectory = calculate_agent_trajectory
+
+        # custom info
+        self.sector_processed = False
+        self.sector_lines = []
+        self.agent_trajectory = []
+        self.medikits = set()
+        self.poisons = set()
+
     def seed(self, seed: Optional[int] = None):
         """
         Used to seed the actual Doom env.
@@ -279,6 +292,15 @@ class VizdoomEnv(gym.Env):
             self.game.add_game_args("+am_thingcolor 0000ff")  # player color
             self.game.add_game_args("+am_thingcolor_item 00ff00")
             # self.game.add_game_args("+am_thingcolor_citem 00ff00")
+
+        # to get map information
+        if self.calculate_agent_trajectory:
+            self.game.set_sectors_info_enabled(True)
+
+        # to get objects information, like medikits and poisons positions
+        self.game.set_objects_info_enabled(True)
+        # to set layout. depends of .wad script
+        self.game.add_game_args(f"+set eval_layout {self.game_layout} +set tics_to_spawn_after_eat 120")
 
         self._game_init()
         self.initialized = True
@@ -410,6 +432,12 @@ class VizdoomEnv(gym.Env):
 
         self._num_episodes += 1
 
+        # reseting custom info variables
+        if self.calculate_agent_trajectory:
+            self.agent_trajectory = []
+        self.medikits.clear()
+        self.poisons.clear()
+
         return np.transpose(img, (1, 2, 0)), {}  # since Gym 0.26.0, we return dict as second return value
 
     def _convert_actions(self, actions):
@@ -470,7 +498,27 @@ class VizdoomEnv(gym.Env):
             observation = self._black_screen()
 
             # when done=True Doom does not allow us to call get_info, so we provide info from the last frame
+            info["sector_lines"] = self.sector_lines
+            info["agent_trajectory"] = self.agent_trajectory
+            info["medikits"] = list(self.medikits)
+            info["poisons"] = list(self.poisons)
             info.update(self._prev_info)
+
+        # custom proccesing
+        if state:
+            # getting objects position
+            for obj in state.objects:
+                obj_name = obj.name.lower()
+                if obj_name == "medikit" or obj_name == "custommedikit":
+                    self.medikits.add((obj.position_x, obj.position_y))
+                if obj_name == "poison":
+                    self.poisons.add((obj.position_x, obj.position_y))
+            # get map wall information
+            if not self.sector_processed:
+                self.sector_processed = True
+                for sector in state.sectors:
+                    for line in sector.lines:
+                        self.sector_lines.append([line.x1, line.y1, line.x2, line.y2])
 
         self._vizdoom_variables_bug_workaround(info, done)
 
@@ -552,7 +600,10 @@ class VizdoomEnv(gym.Env):
         if variables is None:
             variables = self._game_variables_dict(self.game.get_state())
 
-        info_dict = {"pos": self.get_positions(variables)}
+        positions, have_coord_data = self.get_positions(variables)
+        info_dict = {"pos": positions}
+        if have_coord_data:
+            self.agent_trajectory.append((positions["agent_x"], positions["agent_y"]))
         info_dict.update(variables)
         return info_dict
 
@@ -582,7 +633,7 @@ class VizdoomEnv(gym.Env):
             y = variables["POSITION_Y"]
             a = variables["ANGLE"]
 
-        return {"agent_x": x, "agent_y": y, "agent_a": a}
+        return {"agent_x": x, "agent_y": y, "agent_a": a}, have_coord_data
 
     def get_automap_buffer(self):
         if self.game.is_episode_finished():

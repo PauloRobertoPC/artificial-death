@@ -166,3 +166,11 @@ scorecam_analysis.py   Mapas de atenção Score-CAM (run completa)
 scorecam_episode.py    Mapas de atenção Score-CAM (passo a passo)
 pyproject.toml         Dependências; fixa o sample-factory local como editável
 ```
+
+TESTAR AMBIENTE COM O PLAY HUMAN
+    VER INFO
+    TESTAR CENÁRIOS(QUADRADO, CIRCULAR, SENO, GRID)
+    TESTAR WRAPPERS
+REMOVER HOMEOSTASE E DEIXAR SOMENTE RND
+ENTENDER COMO PEGAR OS DADOS E FAZER VISUALIZAÇÕES
+PENSAR E FAZER EXPERIMENTOS
