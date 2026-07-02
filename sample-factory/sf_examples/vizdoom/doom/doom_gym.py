@@ -599,6 +599,11 @@ class VizdoomEnv(gym.Env):
     def get_info(self, variables=None):
         if variables is None:
             variables = self._game_variables_dict(self.game.get_state())
+        # adding medikits and poisons to info
+        if "USER2" in variables:
+            mask = int(variables.pop("USER2"))
+            variables["MEDIKITS"] = mask&0b00000000001111111111
+            variables["POISONS"] = mask>>10
 
         positions, have_coord_data = self.get_positions(variables)
         info_dict = {"pos": positions}
@@ -724,7 +729,7 @@ class VizdoomEnv(gym.Env):
 
                 for frame in range(skip_frames):
                     doom._actions_flattened = actions
-                    _, rew, _, _, _ = env.step(actions)
+                    obs, rew, _, _, _ = env.step(actions)
 
                     new_total_rew = total_rew + rew
                     if new_total_rew != total_rew:
@@ -736,13 +741,12 @@ class VizdoomEnv(gym.Env):
                     if state is not None and verbose:
                         info = doom.get_info()
                         print(
-                            "Health:",
-                            info["HEALTH"],
-                            # 'Weapon:', info['SELECTED_WEAPON'],
-                            # 'ready:', info['ATTACK_READY'],
-                            # 'ammo:', info['SELECTED_WEAPON_AMMO'],
-                            # 'pc:', info['PLAYER_COUNT'],
-                            # 'dmg:', info['DAMAGECOUNT'],
+                            "HEALTH:", info["HEALTH"],
+                            "MEDIKITS:", info["MEDIKITS"],
+                            "POISONS:", info["POISONS"],
+                            "POSITION_X:", info["POSITION_X"],
+                            "POSITION_Y:", info["POSITION_Y"],
+                            "ANGLE:", info["ANGLE"],
                         )
 
                     time_since_last_render = time.time() - last_render_time
@@ -756,8 +760,17 @@ class VizdoomEnv(gym.Env):
                         if time_wait > 0:
                             cv2.waitKey(int(time_wait) * 1000)
                     else:
+                        img = obs.squeeze(0)
+                        img = cv2.resize(
+                            img,
+                            (512, 512),
+                            interpolation=cv2.INTER_NEAREST
+                        )
+                        cv2.imshow("agent visualization", img)
                         if time_wait > 0:
-                            time.sleep(time_wait)
+                            cv2.waitKey(int(time_wait * 1000))
+                        else:
+                            cv2.waitKey(1)
 
                     last_render_time = time.time()
 

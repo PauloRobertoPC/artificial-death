@@ -152,6 +152,20 @@ ao longo de um episódio completo.
 
 ---
 
+## 🏋️ Play as human
+
+Execução curta, para validar o loop de treino de ponta a ponta (~1-2 min):
+
+```bash
+uv run python sample-factory/sf_examples/vizdoom/play_human.py \
+  --env my_health_gathering_homeostatic \
+  --scenario_cfg health_gathering.cfg \
+  --steps_until_decay 0 --decay_speed 10 \
+  --game_layout 0
+```
+
+---
+
 ## 📁 Estrutura do projeto
 
 ```
@@ -168,9 +182,8 @@ pyproject.toml         Dependências; fixa o sample-factory local como editável
 ```
 
 TESTAR AMBIENTE COM O PLAY HUMAN
-    VER INFO
-    TESTAR CENÁRIOS(QUADRADO, CIRCULAR, SENO, GRID)
     TESTAR WRAPPERS
+        TESTAR SAVE TRAJECTORY WRAPPER
 REMOVER HOMEOSTASE E DEIXAR SOMENTE RND
 ENTENDER COMO PEGAR OS DADOS E FAZER VISUALIZAÇÕES
 PENSAR E FAZER EXPERIMENTOS

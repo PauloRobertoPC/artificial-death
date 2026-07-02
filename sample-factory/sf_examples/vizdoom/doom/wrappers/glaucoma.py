@@ -1,119 +1,103 @@
-import numpy as np
 import gymnasium as gym
 
 def is_inside(x, y, n, m):
     return x >= 0 and x < n and y >= 0 and y < m
 
 class GlaucomaWrapper(gym.Wrapper):
-    def __init__(self, env:gym.Env, steps_with_hungry_to_glaucoma:int, steps_glaucoma_level:int):
+    def __init__(self, env:gym.Env, steps_with_hungry_to_glaucoma:int, steps_glaucoma_level:int, 
+                 blidness_reward:float):
         """
         steps_with_hungry_to_glaucoma: how much steps the agent will be with hungry before glaucoma begins
         steps_glaucoma_level: how much pixels the glaucoma will take when the agent is hungry
+        blidness_reward: the reward the agent will win after blidness, the vision after blidness will be reseted
         """
         # env
         self.env = env
-        self.num_envs = env.num_envs
         super(GlaucomaWrapper, self).__init__(env)
 
         # steps heuristic
         self.steps_with_hungry_to_glaucoma = steps_with_hungry_to_glaucoma
-        self.steps_with_hungry = np.zeros(self.num_envs)
-        self.max_steps_with_hungry  = np.zeros(self.num_envs)
+        self.steps_with_hungry = 0
+        self.max_steps_with_hungry  = 0
         self.steps_glaucoma_level = steps_glaucoma_level
+
+        # blidness reward
+        self.blindness_reward = blidness_reward
+        self.blind = False
 
         # pixel stuffs
         self.pixels = self.generate_spiral(env.observation_space.shape[1], env.observation_space.shape[2])
         self.pixels_rows, self.pixels_cols = zip(*self.pixels)
-        self.erased_pixel = np.zeros(self.num_envs)
+        self.erased_pixel = 0
+        self.max_erased_pixel = 0
 
-        self.last_medkits = np.zeros(self.num_envs)
-        self.last_poisons = np.zeros(self.num_envs)
+        self.last_medkits = 0
+        self.last_poisons = 0
 
     def reset(self, seed=None, options=None):
-        self.steps_with_hungry = np.zeros(self.num_envs, dtype=np.uint16)
-        self.erased_pixel = np.zeros(self.num_envs, dtype=np.uint16)
-        self.last_medkits = np.zeros(self.num_envs, dtype=np.uint16)
-        self.last_poisons = np.zeros(self.num_envs, dtype=np.uint16)
-        self.max_steps_with_hungry  = np.zeros(self.num_envs, dtype=np.uint16)
-        return self.env.reset()
+        self.blind = False
+        self.steps_with_hungry = 0
+        self.erased_pixel = 0
+        self.last_medkits = 0
+        self.last_poisons = 0
+        self.max_erased_pixel = 0
+        self.max_steps_with_hungry  = 0
+        return self.env.reset(seed=seed, options=options)
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
 
         self.glaucoma_policy(info)
 
-        ok = truncated | terminated
-        info["max_steps_with_hungry"] = np.where(
-            ok,
-            self.max_steps_with_hungry,
-            0 
-        )
+        if terminated or truncated:
+            info["max_glaucoma_len"] = self.max_erased_pixel
+            info["max_steps_with_hungry"] = self.max_steps_with_hungry
 
         return self.erase_pixels(observation), reward, terminated, truncated, info
-    
+
     def glaucoma_policy(self, info):
-        info["USER2"] = info["USER2"].astype(np.uint32)
+        medkit_used = False 
+        if info["MEDIKITS"] > self.last_medkits:
+            medkit_used = True
+        self.last_medkits = info["MEDIKITS"]
 
-        # POISON POLICY
-        new_poisons = info["USER2"]>>10
-        poisons_used = new_poisons > self.last_poisons
-        self.last_poisons = new_poisons
-        self.erased_pixel += poisons_used.astype(np.uint16) * 5 * self.steps_glaucoma_level
+        poison_used = False
+        if "POISONS" in info:
+            if info["POISONS"] > self.last_poisons:
+                poison_used = True
+            self.last_poisons = info["POISONS"]
 
+        if poison_used:
+            self.erased_pixel += self.steps_glaucoma_level
 
-        # MEDIKIT POLICY
-        new_medikits = info["USER2"]&0b1111111111
-        medkit_used = new_medikits > self.last_medkits
-        self.last_medkits = new_medikits
-        self.steps_with_hungry = np.where(
-            medkit_used,
-            -1,
-            self.steps_with_hungry
-        )
-        self.erased_pixel = np.where(
-            medkit_used,
-            0,
-            self.erased_pixel
-        )
+        if medkit_used:
+            self.steps_with_hungry = -1
+            self.erased_pixel = 0
         self.steps_with_hungry += 1
 
-        # HUNGRY POLICY
-        glaucoma_mask = self.steps_with_hungry > self.steps_with_hungry_to_glaucoma
-        self.erased_pixel = np.where(
-            glaucoma_mask,
-            self.erased_pixel + self.steps_glaucoma_level,
-            self.erased_pixel
-        )
+        if self.steps_with_hungry > self.steps_with_hungry_to_glaucoma:
+            self.erased_pixel += self.steps_glaucoma_level
+            if self.erased_pixel > len(self.pixels):
+                self.blind = True
 
-        # MAX STEPS WITH HUNGRY LOG
-        self.max_steps_with_hungry = np.maximum(
-            self.max_steps_with_hungry,
-            self.steps_with_hungry
-        )
+        if self.erased_pixel > self.max_erased_pixel:
+            self.max_erased_pixel = self.erased_pixel
 
+        if self.steps_with_hungry > self.max_steps_with_hungry:
+            self.max_steps_with_hungry = self.steps_with_hungry
 
-    # def erase_pixels(self, observation):
-    #     if self.erased_pixel > 0:
-    #         rows = self.pixels_rows[:self.erased_pixel]
-    #         cols = self.pixels_cols[:self.erased_pixel]
-    #         observation[:, rows, cols] = 0
-    #     return observation
-        
+    def reward_policy(self, reward):
+        if self.blind:
+            reward = self.blindness_reward
+            self.erased_pixel = 0
+        self.blind = False
+        return reward
+
     def erase_pixels(self, observation):
-        N, C, H, W = observation.shape
-
-        # nothing to erase
-        if np.all(self.erased_pixel <= 0):
-            return observation
-
-        # for each env, erase its first erased_pixel[i] pixels
-        for i in range(N):
-            k = self.erased_pixel[i]
-            if k > 0:
-                rows = self.pixels_rows[:k]
-                cols = self.pixels_cols[:k]
-                observation[i, :, rows, cols] = 0
-
+        if self.erased_pixel > 0:
+            rows = self.pixels_rows[:self.erased_pixel]
+            cols = self.pixels_cols[:self.erased_pixel]
+            observation[:, rows, cols] = 0
         return observation
 
     def generate_spiral(self, n, m):
@@ -140,6 +124,3 @@ class GlaucomaWrapper(gym.Wrapper):
             count += (count_of_count==0)
             direction = (direction+1)%4
         return pixels
-
-def glaucoma_wrapper(start, level):
-    return lambda env: GlaucomaWrapper(env, start, level)

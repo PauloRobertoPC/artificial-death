@@ -21,6 +21,7 @@ def main():
 
     # Force rendering so the game window is visible
     cfg.render_mode = "human"
+    cfg.calculate_agent_trajectory = True
 
     env = make_custom_env(
         full_env_name="my_health_gathering_homeostatic",
@@ -31,7 +32,7 @@ def main():
 
     return_value = 0
     try:
-        return_value = VizdoomEnv.play_human_mode(env)
+        return_value = VizdoomEnv.play_human_mode(env, num_episodes=1)
     finally:
         env.close()
     return return_value
